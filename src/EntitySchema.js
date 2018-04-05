@@ -14,8 +14,8 @@ export default class EntitySchema {
     return this._key;
   }
 
-  getId(entity) {
-    return this._getId(entity);
+  getId(entity, parent) {
+    return this._getId(entity, parent);
   }
 
   define(nestedSchema) {

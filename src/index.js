@@ -14,30 +14,30 @@ function visitObject(obj, schema, bag, options) {
   let normalized = {};
   for (let key in obj) {
     if (obj.hasOwnProperty(key)) {
-      const entity = visit(obj[key], schema[key], bag, options);
+      const entity = visit(obj[key], obj, schema[key], bag, options);
       assignEntity.call(null, normalized, key, entity);
     }
   }
   return normalized;
 }
 
-function defaultMapper(iterableSchema, itemSchema, bag, options) {
-  return (obj) => visit(obj, itemSchema, bag, options);
+function defaultMapper(iterableSchema, itemSchema, bag, options, parent) {
+  return (obj) => visit(obj, parent, itemSchema, bag, options);
 }
 
-function polymorphicMapper(iterableSchema, itemSchema, bag, options) {
+function polymorphicMapper(iterableSchema, itemSchema, bag, options, parent) {
   return (obj) => {
     const schemaKey = iterableSchema.getSchemaKey(obj);
-    const result = visit(obj, itemSchema[schemaKey], bag, options);
+    const result = visit(obj, parent, itemSchema[schemaKey], bag, options);
     return { id: result, schema: schemaKey };
   };
 }
 
-function visitIterable(obj, iterableSchema, bag, options) {
+function visitIterable(obj, parent, iterableSchema, bag, options) {
   const isPolymorphicSchema = iterableSchema.isPolymorphicSchema();
   const itemSchema = iterableSchema.getItemSchema();
   const itemMapper = isPolymorphicSchema ? polymorphicMapper : defaultMapper;
-  const curriedItemMapper = itemMapper(iterableSchema, itemSchema, bag, options);
+  const curriedItemMapper = itemMapper(iterableSchema, itemSchema, bag, options, parent);
 
   if (Array.isArray(obj)) {
     return obj.map(curriedItemMapper);
@@ -65,9 +65,9 @@ function mergeIntoEntity(entityA, entityB, entityKey) {
   }
 }
 
-function visitEntity(entity, entitySchema, bag, options) {
+function visitEntity(entity, parent, entitySchema, bag, options) {
   const entityKey = entitySchema.getKey();
-  const id = entitySchema.getId(entity);
+  const id = entitySchema.getId(entity, parent);
 
   if (!bag[entityKey]) {
     bag[entityKey] = {};
@@ -84,15 +84,15 @@ function visitEntity(entity, entitySchema, bag, options) {
   return id;
 }
 
-function visit(obj, schema, bag, options) {
+function visit(obj, parent, schema, bag, options) {
   if (!isObject(obj) || !isObject(schema)) {
     return obj;
   }
 
   if (schema instanceof EntitySchema) {
-    return visitEntity(obj, schema, bag, options);
+    return visitEntity(obj, parent, schema, bag, options);
   } else if (schema instanceof IterableSchema) {
-    return visitIterable(obj, schema, bag, options);
+    return visitIterable(obj, parent, schema, bag, options);
   } else {
     return visitObject(obj, schema, bag, options);
   }
@@ -118,7 +118,7 @@ export function normalize(obj, schema, options = {}) {
   }
 
   let bag = {};
-  let result = visit(obj, schema, bag, options);
+  let result = visit(obj, obj, schema, bag, options);
 
   return {
     entities: bag,
